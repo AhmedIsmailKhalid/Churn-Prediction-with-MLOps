@@ -1,0 +1,24 @@
+{
+    "customer_id": "test-001",
+    "features": {
+      "gender": "Female",
+      "senior_citizen": 0,
+      "partner": "Yes",
+      "dependents": "No",
+      "tenure": 12,
+      "contract": "Month-to-month",
+      "paperless_billing": "Yes",
+      "payment_method": "Electronic check",
+      "monthly_charges": 65.50,
+      "total_charges": 786.00,
+      "phone_service": "Yes",
+      "multiple_lines": "No",
+      "internet_service": "DSL",
+      "online_security": "Yes",
+      "online_backup": "Yes",
+      "device_protection": "No",
+      "tech_support": "No",
+      "streaming_tv": "No",
+      "streaming_movies": "No"
+    }
+  }

@@ -69,8 +69,26 @@ class ModelLoader:
             # Get model version from registry
             model_uri = f"models:/{self.model_name}/{self.model_stage}"
             
-            # Load model
-            self._model = mlflow.sklearn.load_model(model_uri)
+            # Try to load as XGBoost first, then sklearn
+            try:
+                import mlflow.xgboost
+                self._model = mlflow.xgboost.load_model(model_uri)
+                logger.info("Loaded as XGBoost model")
+            except:
+                import mlflow.sklearn
+                self._model = mlflow.sklearn.load_model(model_uri)
+                logger.info("Loaded as sklearn model")
+            
+            # Get the feature names from the model
+            if hasattr(self._model, 'feature_names_in_'):
+                self._feature_columns = list(self._model.feature_names_in_)
+                logger.info(f"Loaded {len(self._feature_columns)} feature names from model")
+            elif hasattr(self._model, 'get_booster'):
+                # XGBoost specific
+                self._feature_columns = self._model.get_booster().feature_names
+                logger.info(f"Loaded {len(self._feature_columns)} feature names from XGBoost model")
+            else:
+                logger.warning("Could not extract feature names from model")
             
             # Get model metadata
             model_versions = self.client.search_model_versions(
@@ -108,6 +126,9 @@ class ModelLoader:
                 }
             
             logger.info(f"Model loaded successfully: {self._model_info}")
+            if self._feature_columns:
+                logger.info(f"Expected features: {self._feature_columns[:5]}... ({len(self._feature_columns)} total)")
+            
             return self._model
             
         except Exception as e:
@@ -154,13 +175,21 @@ class ModelLoader:
         # Create a copy
         df = df.copy()
         
-        # Convert categorical variables to dummy variables
-        categorical_cols = df.select_dtypes(include=['object']).columns
-        df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+        # Handle TotalCharges - convert to numeric
+        if 'TotalCharges' in df.columns:
+            df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+            df['TotalCharges'].fillna(0, inplace=True)
+        
+        # Convert categorical variables to dummy variables (same as training)
+        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        
+        if len(categorical_cols) > 0:
+            df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
         
         # Convert boolean columns to int
-        bool_cols = df.select_dtypes(include=['bool']).columns
-        df[bool_cols] = df[bool_cols].astype(int)
+        bool_cols = df.select_dtypes(include=['bool']).columns.tolist()
+        if len(bool_cols) > 0:
+            df[bool_cols] = df[bool_cols].astype(int)
         
         # If we have stored feature columns from training, align them
         if self._feature_columns is not None:
@@ -169,7 +198,7 @@ class ModelLoader:
                 if col not in df.columns:
                     df[col] = 0
             
-            # Remove extra columns and reorder
+            # Keep only the columns from training, in the same order
             df = df[self._feature_columns]
         
         return df

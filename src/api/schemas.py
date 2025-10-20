@@ -63,28 +63,55 @@ class CustomerFeatures(BaseModel):
     """
     # Demographics
     gender: str = Field(..., description="Customer gender (Male/Female)")
-    senior_citizen: int = Field(..., ge=0, le=1, description="Whether customer is senior citizen (0/1)")
-    partner: str = Field(..., description="Whether customer has partner (Yes/No)")
-    dependents: str = Field(..., description="Whether customer has dependents (Yes/No)")
+    SeniorCitizen: int = Field(..., ge=0, le=1, description="Whether customer is senior citizen (0/1)", alias="senior_citizen")
+    Partner: str = Field(..., description="Whether customer has partner (Yes/No)", alias="partner")
+    Dependents: str = Field(..., description="Whether customer has dependents (Yes/No)", alias="dependents")
     
     # Account information
     tenure: int = Field(..., ge=0, description="Number of months customer has stayed with company")
-    contract: str = Field(..., description="Contract type (Month-to-month/One year/Two year)")
-    paperless_billing: str = Field(..., description="Whether customer has paperless billing (Yes/No)")
-    payment_method: str = Field(..., description="Payment method")
-    monthly_charges: float = Field(..., gt=0, description="Monthly charges amount")
-    total_charges: float = Field(..., ge=0, description="Total charges amount")
+    Contract: str = Field(..., description="Contract type (Month-to-month/One year/Two year)", alias="contract")
+    PaperlessBilling: str = Field(..., description="Whether customer has paperless billing (Yes/No)", alias="paperless_billing")
+    PaymentMethod: str = Field(..., description="Payment method", alias="payment_method")
+    MonthlyCharges: float = Field(..., gt=0, description="Monthly charges amount", alias="monthly_charges")
+    TotalCharges: float = Field(..., ge=0, description="Total charges amount", alias="total_charges")
     
     # Services
-    phone_service: str = Field(..., description="Whether customer has phone service (Yes/No)")
-    multiple_lines: str = Field(..., description="Whether customer has multiple lines (Yes/No/No phone service)")
-    internet_service: str = Field(..., description="Internet service type (DSL/Fiber optic/No)")
-    online_security: str = Field(..., description="Whether customer has online security (Yes/No/No internet service)")
-    online_backup: str = Field(..., description="Whether customer has online backup (Yes/No/No internet service)")
-    device_protection: str = Field(..., description="Whether customer has device protection (Yes/No/No internet service)")
-    tech_support: str = Field(..., description="Whether customer has tech support (Yes/No/No internet service)")
-    streaming_tv: str = Field(..., description="Whether customer has streaming TV (Yes/No/No internet service)")
-    streaming_movies: str = Field(..., description="Whether customer has streaming movies (Yes/No/No internet service)")
+    PhoneService: str = Field(..., description="Whether customer has phone service (Yes/No)", alias="phone_service")
+    MultipleLines: str = Field(..., description="Whether customer has multiple lines (Yes/No/No phone service)", alias="multiple_lines")
+    InternetService: str = Field(..., description="Internet service type (DSL/Fiber optic/No)", alias="internet_service")
+    OnlineSecurity: str = Field(..., description="Whether customer has online security (Yes/No/No internet service)", alias="online_security")
+    OnlineBackup: str = Field(..., description="Whether customer has online backup (Yes/No/No internet service)", alias="online_backup")
+    DeviceProtection: str = Field(..., description="Whether customer has device protection (Yes/No/No internet service)", alias="device_protection")
+    TechSupport: str = Field(..., description="Whether customer has tech support (Yes/No/No internet service)", alias="tech_support")
+    StreamingTV: str = Field(..., description="Whether customer has streaming TV (Yes/No/No internet service)", alias="streaming_tv")
+    StreamingMovies: str = Field(..., description="Whether customer has streaming movies (Yes/No/No internet service)", alias="streaming_movies")
+    
+    model_config = ConfigDict(
+        populate_by_name=True,  # Allow both field name and alias
+        json_schema_extra={
+            "example": {
+                "gender": "Female",
+                "senior_citizen": 0,
+                "partner": "Yes",
+                "dependents": "No",
+                "tenure": 12,
+                "contract": "Month-to-month",
+                "paperless_billing": "Yes",
+                "payment_method": "Electronic check",
+                "monthly_charges": 65.50,
+                "total_charges": 786.00,
+                "phone_service": "Yes",
+                "multiple_lines": "No",
+                "internet_service": "DSL",
+                "online_security": "Yes",
+                "online_backup": "Yes",
+                "device_protection": "No",
+                "tech_support": "No",
+                "streaming_tv": "No",
+                "streaming_movies": "No"
+            }
+        }
+    )
     
     @field_validator('gender')
     @classmethod
@@ -95,7 +122,7 @@ class CustomerFeatures(BaseModel):
             raise ValueError(f"Gender must be one of {allowed}")
         return v
     
-    @field_validator('partner', 'dependents', 'phone_service', 'paperless_billing')
+    @field_validator('Partner', 'Dependents', 'PhoneService', 'PaperlessBilling')
     @classmethod
     def validate_yes_no(cls, v: str) -> str:
         """Validate Yes/No fields."""
@@ -104,7 +131,7 @@ class CustomerFeatures(BaseModel):
             raise ValueError(f"Value must be one of {allowed}")
         return v
     
-    @field_validator('contract')
+    @field_validator('Contract')
     @classmethod
     def validate_contract(cls, v: str) -> str:
         """Validate contract type."""
@@ -113,7 +140,7 @@ class CustomerFeatures(BaseModel):
             raise ValueError(f"Contract must be one of {allowed}")
         return v
     
-    @field_validator('internet_service')
+    @field_validator('InternetService')
     @classmethod
     def validate_internet_service(cls, v: str) -> str:
         """Validate internet service type."""
@@ -121,30 +148,6 @@ class CustomerFeatures(BaseModel):
         if v not in allowed:
             raise ValueError(f"Internet service must be one of {allowed}")
         return v
-    
-    model_config = ConfigDict(json_schema_extra={
-        "example": {
-            "gender": "Female",
-            "senior_citizen": 0,
-            "partner": "Yes",
-            "dependents": "No",
-            "tenure": 12,
-            "contract": "Month-to-month",
-            "paperless_billing": "Yes",
-            "payment_method": "Electronic check",
-            "monthly_charges": 65.50,
-            "total_charges": 786.00,
-            "phone_service": "Yes",
-            "multiple_lines": "No",
-            "internet_service": "DSL",
-            "online_security": "Yes",
-            "online_backup": "Yes",
-            "device_protection": "No",
-            "tech_support": "No",
-            "streaming_tv": "No",
-            "streaming_movies": "No"
-        }
-    })
 
 
 class PredictionRequest(BaseModel):
