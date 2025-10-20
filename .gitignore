@@ -42,7 +42,10 @@ ENV/
 .env
 .env.local
 
-# MLflow
+# MLflow local files
+mlflow.db
+mlflow.db-shm
+mlflow.db-wal
 mlruns/
 mlartifacts/
 

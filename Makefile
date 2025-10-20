@@ -45,6 +45,15 @@ clean: ## Clean up generated files
 	rm -rf build dist htmlcov .coverage
 	rm -rf .venv
 
+data-download: ## Download Telco Churn dataset
+	$(POETRY) run python scripts/download_data.py
+
+data-validate: ## Validate raw data
+	$(POETRY) run python scripts/validate_data.py
+
+run-training: ## Run model training pipeline
+	$(POETRY) run python -m src.models.train
+
 test: ## Run tests
 	$(POETRY) run pytest tests/ -v --cov=src --cov-report=html --cov-report=term
 
