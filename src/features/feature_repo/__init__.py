@@ -1,1 +1,1 @@
- 
+"""Feast feature repository for churn prediction"""
