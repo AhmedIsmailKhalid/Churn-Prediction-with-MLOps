@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 import pandera as pa
-from pandera import Column, Check, DataFrameSchema
+from pandera import Check, Column, DataFrameSchema
 
 # Setup logging
 logging.basicConfig(

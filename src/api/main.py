@@ -10,28 +10,28 @@ import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 import mlflow
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from starlette.responses import Response
 
+from src.api.dependencies import ModelLoader, get_model_loader
 from src.api.schemas import (
-    PredictionRequest,
-    PredictionResponse,
     BatchPredictionRequest,
     BatchPredictionResponse,
+    ErrorResponse,
     HealthResponse,
     HealthStatus,
-    ServiceStatus,
     ModelInfo,
-    ErrorResponse,
+    PredictionRequest,
+    PredictionResponse,
+    ServiceStatus,
 )
-from src.api.dependencies import get_model_loader, ModelLoader
 
 # Configure logging
 logging.basicConfig(
@@ -107,7 +107,7 @@ async def lifespan(app: FastAPI):
         # Load model
         logger.info("Loading ML model...")
         load_start = time.time()
-        model = ModelState.model_loader.load_model()
+        model = ModelState.model_loader.load_model() # noqa
         load_time = time.time() - load_start
         
         logger.info(f"Model loaded successfully in {load_time:.2f} seconds")
@@ -384,9 +384,17 @@ async def predict(request: PredictionRequest):
                 detail="Model not loaded"
             )
         
-        # Convert request to DataFrame
+        # Get customer_id (use provided or generate a temporary one)
+        customer_id = request.customer_id or f"temp_{int(time.time())}"
+        
+        # Convert request to dictionary
         features_dict = request.features.model_dump()
-        features_df = pd.DataFrame([features_dict])
+        
+        # Get features (from Feast online store if available, otherwise use provided)
+        features_df = ModelState.model_loader.get_online_features(
+            customer_id=customer_id,
+            features_dict=features_dict
+        )
         
         # Preprocess features
         processed_features = ModelState.model_loader.preprocess_features(features_df)
@@ -518,7 +526,7 @@ async def metrics():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Configuration
     host = os.getenv("API_HOST", "0.0.0.0")
     port = int(os.getenv("API_PORT", "8000"))

@@ -9,9 +9,9 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 # Add src to path for imports
@@ -157,8 +157,8 @@ def api_client(mock_model):
     ensuring the app starts up with mocked dependencies.
     """
     # Need to import after patching to ensure patches are active during import
-    from src.api.main import app, ModelState
-    
+    from src.api.main import ModelState, app
+
     # Manually set the model state for tests
     ModelState.model_loader = mock_model
     ModelState.model_info = mock_model.get_model_info()

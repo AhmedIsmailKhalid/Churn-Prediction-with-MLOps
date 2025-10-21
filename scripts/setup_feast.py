@@ -13,8 +13,8 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 # Setup logging
 logging.basicConfig(
@@ -105,7 +105,7 @@ def apply_feast_definitions():
     
     try:
         # Change to feature repo directory
-        original_dir = Path.cwd()
+        original_dir = Path.cwd() # noqa
         feature_repo_dir = PROJECT_ROOT / "src" / "features" / "feature_repo"
         
         logger.info(f"Changing to directory: {feature_repo_dir}")

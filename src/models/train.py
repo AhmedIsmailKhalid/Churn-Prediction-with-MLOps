@@ -4,25 +4,25 @@ XGBoost model training for churn prediction with better imbalance handling.
 
 import logging
 import os
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, Tuple, Any, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import mlflow
 import mlflow.xgboost
-import numpy as np
 import pandas as pd
 import xgboost as xgb
-from sklearn.model_selection import train_test_split
+from feast import FeatureStore
+from feast.infra.offline_stores.file_source import SavedDatasetFileStorage  # noqa
 from sklearn.metrics import (
     accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    confusion_matrix,
-    classification_report
 )
+from sklearn.model_selection import train_test_split
 
 # Configure logging
 logging.basicConfig(
@@ -40,17 +40,27 @@ class ChurnModelTrainer:
         data_path: str,
         model_name: str = "churn_prediction",
         experiment_name: str = "churn_prediction_experiments",
-        random_state: int = 42
+        random_state: int = 42,
+        use_feast: bool = True
     ):
         """Initialize the XGBoost trainer."""
         self.data_path = Path(data_path)
         self.model_name = model_name
         self.experiment_name = experiment_name
         self.random_state = random_state
+        self.use_feast = use_feast
         
         self.mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
         mlflow.set_tracking_uri(self.mlflow_uri)
         mlflow.set_experiment(self.experiment_name)
+        
+        # Initialize Feast if enabled
+        if self.use_feast:
+            feast_repo_path = Path(__file__).parent.parent / "features" / "feature_repo"
+            self.feast_store = FeatureStore(repo_path=str(feast_repo_path))
+            logger.info(f"Initialized Feast feature store from {feast_repo_path}")
+        else:
+            self.feast_store = None
         
         logger.info(f"Initialized XGBoost Trainer with MLflow URI: {self.mlflow_uri}")
     
@@ -125,6 +135,67 @@ class ChurnModelTrainer:
         logger.info(f"Test set: {X_test.shape[0]} samples")
         
         return X_train, X_val, X_test, y_train, y_val, y_test
+    
+    def load_features_from_feast(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Load features from Feast offline store.
+        
+        Returns:
+            Tuple of (features DataFrame, target Series)
+        """
+        logger.info("Loading features from Feast offline store...")
+        
+        # Load raw data to get customer IDs and target
+        df_raw = pd.read_csv(self.data_path)
+        df_raw = df_raw.rename(columns={'customerID': 'customer_id'})
+        
+        # Get target variable
+        y_raw = df_raw[['customer_id', 'Churn']].copy()
+        y_raw['Churn'] = y_raw['Churn'].map({'Yes': 1, 'No': 0})
+        
+        # Create entity dataframe for Feast
+        entity_df = pd.DataFrame({
+            'customer_id': df_raw['customer_id'],
+            'event_timestamp': pd.to_datetime('now')
+        })
+        
+        # Get features from Feast
+        feature_vector = self.feast_store.get_historical_features(
+            entity_df=entity_df,
+            features=[
+                "customer_demographics:gender",
+                "customer_demographics:SeniorCitizen",
+                "customer_demographics:Partner",
+                "customer_demographics:Dependents",
+                "customer_account:tenure",
+                "customer_account:Contract",
+                "customer_account:PaperlessBilling", 
+                "customer_account:PaymentMethod",
+                "customer_account:MonthlyCharges",
+                "customer_account:TotalCharges",
+                "customer_services:PhoneService",
+                "customer_services:MultipleLines",
+                "customer_services:InternetService",
+                "customer_services:OnlineSecurity",
+                "customer_services:OnlineBackup",
+                "customer_services:DeviceProtection",
+                "customer_services:TechSupport",
+                "customer_services:StreamingTV",
+                "customer_services:StreamingMovies",
+            ]
+        ).to_df()
+        
+        # Merge features with target to ensure alignment
+        feature_vector = feature_vector.merge(y_raw, on='customer_id', how='inner')
+        
+        # Separate features and target
+        y = feature_vector['Churn']
+        X = feature_vector.drop(columns=['event_timestamp', 'customer_id', 'Churn'])
+        
+        logger.info(f"Loaded {len(X)} records with {len(X.columns)} features from Feast")
+        logger.info(f"Features and labels aligned: X shape={X.shape}, y shape={y.shape}")
+        
+        return X, y
     
     def train_model(
         self,
@@ -208,6 +279,37 @@ class ChurnModelTrainer:
         
         return metrics
     
+    def preprocess_feast_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Preprocess features loaded from Feast.
+        
+        Args:
+            df: DataFrame with features from Feast
+            
+        Returns:
+            Preprocessed features
+        """
+        logger.info("Preprocessing Feast features")
+        df = df.copy()
+        
+        # Handle TotalCharges
+        if 'TotalCharges' in df.columns:
+            df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+            df['TotalCharges'].fillna(0, inplace=True)
+        
+        # One-hot encode categorical columns
+        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        if len(categorical_cols) > 0:
+            df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+        
+        # Convert boolean to int
+        bool_cols = df.select_dtypes(include=['bool']).columns.tolist()
+        if len(bool_cols) > 0:
+            df[bool_cols] = df[bool_cols].astype(int)
+        
+        logger.info(f"Preprocessed features shape: {df.shape}")
+        return df
+    
     def run_training_pipeline(
         self,
         hyperparameters: Optional[Dict[str, Any]] = None,
@@ -222,11 +324,20 @@ class ChurnModelTrainer:
                 mlflow.log_param("data_path", str(self.data_path))
                 mlflow.log_param("model_type", "XGBoost")
                 mlflow.log_param("random_state", self.random_state)
+                mlflow.log_param("use_feast", self.use_feast)
                 
                 df = self.load_data()
                 mlflow.log_param("total_samples", len(df))
                 
-                X, y = self.preprocess_data(df)
+                # Load features - use Feast if enabled
+                if self.use_feast:
+                    X, y = self.load_features_from_feast()
+                    # Preprocess Feast features
+                    X = self.preprocess_feast_features(X)
+                else:
+                    df = self.load_data()
+                    X, y = self.preprocess_data(df)
+                    
                 mlflow.log_param("n_features", X.shape[1])
                 
                 X_train, X_val, X_test, y_train, y_val, y_test = self.split_data(X, y)

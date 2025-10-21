@@ -6,6 +6,7 @@ Defines entities, feature views, and feature services for the churn prediction m
 
 from datetime import timedelta
 from pathlib import Path
+
 from feast import Entity, FeatureView, Field, FileSource
 from feast.types import Float32, Int32, String
 
