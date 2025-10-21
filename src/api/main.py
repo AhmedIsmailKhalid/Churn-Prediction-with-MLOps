@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 import mlflow
-import pandas as pd
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -32,6 +31,7 @@ from src.api.schemas import (
     PredictionResponse,
     ServiceStatus,
 )
+from src.monitoring.drift_detection import DriftDetector
 
 # Configure logging
 logging.basicConfig(
@@ -523,6 +523,70 @@ async def metrics():
         media_type=CONTENT_TYPE_LATEST
     )
 
+@app.get(
+    "/drift/check",
+    summary="Check for feature drift",
+    description="Compare current production data against training data to detect drift"
+)
+async def check_drift():
+    """
+    Check for feature drift between training and production data.
+    """
+    try:
+        # Load training data (reference)
+        from pathlib import Path
+        import pandas as pd
+        
+        data_path = Path(__file__).parent.parent.parent / "data" / "raw" / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
+        df = pd.read_csv(data_path)
+        
+        # Handle TotalCharges
+        df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+        df['TotalCharges'].fillna(0, inplace=True)
+        
+        # Split: training (70%) vs production (30%)
+        split_idx = int(len(df) * 0.7)
+        training_data = df.iloc[:split_idx]
+        production_data = df.iloc[split_idx:]
+        
+        # Initialize detector
+        detector = DriftDetector(training_data, threshold=0.2)
+        
+        # Check drift
+        results = detector.check_drift(production_data)
+        
+        # Convert report to list of dicts with proper types
+        report_list = []
+        for _, row in results['report'].iterrows():
+            report_list.append({
+                'feature': str(row['feature']),
+                'psi': float(row['psi']),
+                'status': str(row['status']),
+                'drifted': bool(row['drifted']),
+                'description': str(row['description'])
+            })
+        
+        # Format response with type conversions
+        return {
+            "status": "success",
+            "drift_check": {
+                "overall_status": str(results['overall_status']),
+                "drifted_features": int(results['drifted_features']),
+                "total_features": int(results['total_features']),
+                "max_psi": float(results['max_psi']),
+                "mean_psi": float(results['mean_psi']),
+                "threshold": 0.2
+            },
+            "features": report_list,
+            "timestamp": datetime.now().isoformat()  # Use .isoformat() for datetime
+        }
+        
+    except Exception as e:
+        logger.error(f"Drift check error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Drift check failed: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

@@ -7,7 +7,7 @@ Defines entities, feature views, and feature services for the churn prediction m
 from datetime import timedelta
 from pathlib import Path
 
-from feast import Entity, FeatureView, Field, FileSource
+from feast import Entity, FeatureView, Field, FileSource, ValueType
 from feast.types import Float32, Int32, String
 
 # Get absolute path to the parquet file
@@ -18,8 +18,10 @@ PARQUET_PATH = str(PROJECT_ROOT / "data" / "processed" / "features" / "customer_
 customer = Entity(
     name="customer",
     join_keys=["customer_id"],
+    value_type=ValueType.STRING,
     description="Customer identifier"
 )
+
 
 # Define the data source - Parquet file with historical customer data
 customer_source = FileSource(
