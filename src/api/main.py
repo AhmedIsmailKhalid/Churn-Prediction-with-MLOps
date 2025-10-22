@@ -535,6 +535,7 @@ async def check_drift():
     try:
         # Load training data (reference)
         from pathlib import Path
+
         import pandas as pd
         
         data_path = Path(__file__).parent.parent.parent / "data" / "raw" / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
