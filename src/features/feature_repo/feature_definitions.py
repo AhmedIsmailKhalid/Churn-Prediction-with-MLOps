@@ -5,27 +5,27 @@ Defines entities, feature views, and feature services for the churn prediction m
 """
 
 from datetime import timedelta
-from pathlib import Path
+import os
 
-from feast import Entity, FeatureView, Field, FileSource, ValueType
+from feast import Entity, FeatureView, Field, FileSource
 from feast.types import Float32, Int32, String
 
-# Get absolute path to the parquet file
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-PARQUET_PATH = str(PROJECT_ROOT / "data" / "processed" / "features" / "customer_features.parquet")
+# Use container path for Docker, fallback to relative path for local
+if os.path.exists("/app/data/processed/features/customer_features.parquet"):
+    PARQUET_PATH = "/app/data/processed/features/customer_features.parquet"
+else:
+    PARQUET_PATH = "data/processed/features/customer_features.parquet"
 
 # Define the customer entity
 customer = Entity(
-    name="customer",
-    join_keys=["customer_id"],
-    value_type=ValueType.STRING,
+    name="customer_id",  # Changed from "customer" to match data column
     description="Customer identifier"
 )
 
 
 # Define the data source - Parquet file with historical customer data
 customer_source = FileSource(
-    path=PARQUET_PATH,  # Use absolute path
+    path=PARQUET_PATH,
     timestamp_field="event_timestamp",
 )
 

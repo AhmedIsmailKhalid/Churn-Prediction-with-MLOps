@@ -77,10 +77,11 @@ class ModelLoader:
         Load the model from MLflow registry.
         
         Returns:
-            Loaded model
+            Loaded model or None if model doesn't exist
             
-        Raises:
-            Exception: If model loading fails
+        Note:
+            If model is not found, API will start without a model.
+            Train and register a model first.
         """
         try:
             logger.info(f"Loading model: {self.model_name} ({self.model_stage})")
@@ -151,8 +152,23 @@ class ModelLoader:
             return self._model
             
         except Exception as e:
-            logger.error(f"Failed to load model: {str(e)}")
-            raise
+            logger.warning(f"Could not load model '{self.model_name}' from stage '{self.model_stage}': {str(e)}")
+            logger.warning("API will start without a model loaded")
+            logger.warning("To fix: Train a model using 'python -m src.models.train' and ensure it's promoted to Production")
+            
+            # Set model to None but don't crash
+            self._model = None
+            self._model_info = {
+                "name": self.model_name,
+                "version": "not_loaded",
+                "stage": self.model_stage,
+                "loaded_at": datetime.now(),
+                "mlflow_run_id": None,
+                "metrics": None,
+                "error": str(e)
+            }
+            
+            return None
     
     def get_model(self):
         """

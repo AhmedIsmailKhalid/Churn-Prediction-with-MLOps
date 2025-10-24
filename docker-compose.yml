@@ -13,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mlflow"]
       interval: 10s
@@ -37,6 +38,26 @@ services:
       retries: 5
     networks:
       - mlops-network
+
+  # Model Trainer - Runs once to register initial model
+  model-trainer:
+    build:
+      context: .
+      dockerfile: src/api/Dockerfile
+    container_name: mlops-trainer
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    command: >
+      sh -c "python -m src.models.train || echo 'Model already exists'"
+    networks:
+      - mlops-network
+    restart: "no"  # Only run once
 
   # MLflow - Experiment tracking and model registry
   mlflow:

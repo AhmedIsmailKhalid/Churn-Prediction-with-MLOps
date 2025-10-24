@@ -1,0 +1,171 @@
+{
+    "dashboard": {
+      "title": "Churn Prediction ML Model Monitoring",
+      "uid": "churn-prediction-ml",
+      "timezone": "browser",
+      "schemaVersion": 16,
+      "version": 1,
+      "refresh": "5s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Total Predictions",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "sum(churn_predictions_total)",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "graphMode": "area",
+            "colorMode": "value"
+          }
+        },
+        {
+          "id": 2,
+          "title": "Predictions per Minute",
+          "type": "stat",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "rate(churn_predictions_total[1m]) * 60",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "graphMode": "area",
+            "colorMode": "value"
+          }
+        },
+        {
+          "id": 3,
+          "title": "Average Prediction Latency",
+          "type": "stat",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "rate(churn_prediction_latency_seconds_sum[5m]) / rate(churn_prediction_latency_seconds_count[5m])",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "graphMode": "area",
+            "colorMode": "value",
+            "unit": "s"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Service Health",
+          "type": "stat",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            {
+              "expr": "service_health_status",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "value": 0, "color": "red" },
+                  { "value": 1, "color": "green" }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Prediction Rate Over Time",
+          "type": "graph",
+          "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "rate(churn_predictions_total[1m])",
+              "refId": "A",
+              "legendFormat": "{{prediction_label}}"
+            }
+          ],
+          "yaxes": [
+            { "format": "short", "label": "Predictions/sec" },
+            { "format": "short" }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "Prediction Latency Histogram",
+          "type": "graph",
+          "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, rate(churn_prediction_latency_seconds_bucket[5m]))",
+              "refId": "A",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, rate(churn_prediction_latency_seconds_bucket[5m]))",
+              "refId": "B",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, rate(churn_prediction_latency_seconds_bucket[5m]))",
+              "refId": "C",
+              "legendFormat": "p99"
+            }
+          ],
+          "yaxes": [
+            { "format": "s", "label": "Latency" },
+            { "format": "short" }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "API Requests by Endpoint",
+          "type": "graph",
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "rate(api_requests_total[1m])",
+              "refId": "A",
+              "legendFormat": "{{method}} {{endpoint}} ({{status_code}})"
+            }
+          ],
+          "yaxes": [
+            { "format": "reqps", "label": "Requests/sec" },
+            { "format": "short" }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "Prediction Probability Distribution",
+          "type": "graph",
+          "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+          "targets": [
+            {
+              "expr": "rate(churn_prediction_probability_sum[5m]) / rate(churn_prediction_probability_count[5m])",
+              "refId": "A",
+              "legendFormat": "Average Probability"
+            }
+          ],
+          "yaxes": [
+            { "format": "percentunit", "label": "Probability" },
+            { "format": "short" }
+          ]
+        }
+      ]
+    }
+  }
