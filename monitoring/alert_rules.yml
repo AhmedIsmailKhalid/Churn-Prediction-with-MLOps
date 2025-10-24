@@ -1,0 +1,155 @@
+groups:
+  - name: churn_prediction_alerts
+    interval: 30s
+    rules:
+      # API Health Alerts
+      - alert: APIDown
+        expr: service_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Churn Prediction API is down"
+          description: "The API service has been unhealthy for more than 1 minute."
+
+      - alert: HighAPILatency
+        expr: |
+          rate(api_request_latency_seconds_sum{endpoint="/predict"}[5m]) 
+          / 
+          rate(api_request_latency_seconds_count{endpoint="/predict"}[5m]) 
+          > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API prediction latency detected"
+          description: "Average prediction latency is {{ $value | humanizeDuration }} (threshold: 200ms)"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(api_requests_total{status_code=~"5.."}[5m])) 
+          / 
+          sum(rate(api_requests_total[5m])) 
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High API error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # Model Performance Alerts
+      - alert: LowPredictionVolume
+        expr: rate(churn_predictions_total[10m]) < 0.01
+        for: 10m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "Low prediction volume"
+          description: "Model is receiving very few prediction requests (< 0.6/min)"
+
+      - alert: HighPredictionLatency
+        expr: |
+          rate(churn_prediction_latency_seconds_sum[5m]) 
+          / 
+          rate(churn_prediction_latency_seconds_count[5m]) 
+          > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "High model prediction latency"
+          description: "Model prediction latency is {{ $value | humanizeDuration }} (threshold: 100ms)"
+
+      # System Resource Alerts
+      - alert: HighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="api"} 
+          / 
+          1024 / 1024 / 1024 
+          > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage on API service"
+          description: "API service is using {{ $value | humanize }}GB of memory (threshold: 1GB)"
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="api"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage on API service"
+          description: "API service CPU usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # Service Discovery Alerts
+      - alert: PrometheusScrapeFailure
+        expr: up{job="api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.job }}"
+          description: "The {{ $labels.job }} target has been down for more than 2 minutes."
+
+      - alert: MLflowDown
+        expr: up{job="mlflow"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: mlflow
+        annotations:
+          summary: "MLflow service is unreachable"
+          description: "MLflow has been unreachable for more than 5 minutes."
+
+      - alert: PrefectDown
+        expr: up{job="prefect"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: prefect
+        annotations:
+          summary: "Prefect service is unreachable"
+          description: "Prefect has been unreachable for more than 5 minutes."
+
+  - name: model_quality_alerts
+    interval: 1m
+    rules:
+      # Model Drift Detection (placeholder - needs actual drift metrics)
+      - alert: ModelStale
+        expr: (time() - model_load_timestamp) > 604800  # 7 days
+        for: 1h
+        labels:
+          severity: info
+          component: model
+        annotations:
+          summary: "Model has not been updated recently"
+          description: "Current model was loaded {{ $value | humanizeDuration }} ago. Consider retraining."
+
+      # Prediction Distribution Anomaly
+      - alert: UnbalancedPredictions
+        expr: |
+          max(churn_predictions_total) 
+          / 
+          (sum(churn_predictions_total) + 1) 
+          > 0.95
+        for: 30m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "Highly unbalanced prediction distribution"
+          description: "Model is predicting one class > 95% of the time. Possible model degradation."

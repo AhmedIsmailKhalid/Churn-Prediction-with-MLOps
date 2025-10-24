@@ -589,6 +589,45 @@ async def check_drift():
             detail=f"Drift check failed: {str(e)}"
         )
 
+
+@app.post("/webhooks/alerts")
+async def receive_alert(request: Request):
+    """
+    Receive alerts from AlertManager.
+    Log them and optionally forward to other systems.
+    """
+    try:
+        alert_data = await request.json()
+        
+        logger.info("=" * 60)
+        logger.info("ALERT RECEIVED FROM ALERTMANAGER")
+        logger.info("=" * 60)
+        
+        for alert in alert_data.get('alerts', []):
+            status = alert.get('status', 'unknown')
+            labels = alert.get('labels', {})
+            annotations = alert.get('annotations', {})
+            
+            logger.warning(
+                f"Alert: {labels.get('alertname', 'Unknown')} | "
+                f"Severity: {labels.get('severity', 'unknown')} | "
+                f"Status: {status} | "
+                f"Summary: {annotations.get('summary', 'N/A')}"
+            )
+            
+            if status == 'firing':
+                logger.error(f"🔥 FIRING: {annotations.get('description', 'N/A')}")
+            else:
+                logger.info(f"✅ RESOLVED: {annotations.get('description', 'N/A')}")
+        
+        logger.info("=" * 60)
+        
+        return {"status": "received", "alerts_count": len(alert_data.get('alerts', []))}
+        
+    except Exception as e:
+        logger.error(f"Error processing alert webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
 

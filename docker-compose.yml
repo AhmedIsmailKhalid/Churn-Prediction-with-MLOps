@@ -157,6 +157,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml  # ADD THIS LINE
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -168,6 +169,23 @@ services:
       - mlops-network
     depends_on:
       - api
+
+  # Alert Manager for Prometheus service
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: mlops-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - mlops-network
+    depends_on:
+      - prometheus
 
   # Grafana - Metrics visualization
   grafana:
@@ -198,3 +216,4 @@ volumes:
   mlflow_artifacts:
   prometheus_data:
   grafana_data:
+  alertmanager_data: 
