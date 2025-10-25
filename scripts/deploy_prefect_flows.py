@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 project_root = Path(__file__).parent.parent
 
-from src.pipelines.training import training_flow # noqa
+from src.pipelines.training import training_flow  # noqa
 
 
 def deploy_training_flow():

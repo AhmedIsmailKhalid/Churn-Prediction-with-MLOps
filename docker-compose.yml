@@ -89,6 +89,27 @@ services:
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
+  
+  # MLFlow Exporter
+  mlflow-exporter:
+    build:
+      context: .
+      dockerfile: src/api/Dockerfile
+    container_name: mlops-mlflow-exporter
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_EXPORTER_PORT=8001
+      - MLFLOW_EXPORTER_INTERVAL=30
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./src:/app/src
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    command: python -m src.monitoring.mlflow_exporter
+    networks:
+      - mlops-network
 
   # Prefect Server - Workflow orchestration
   prefect:

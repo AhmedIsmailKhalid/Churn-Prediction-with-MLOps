@@ -4,8 +4,8 @@ Feast feature definitions for churn prediction.
 Defines entities, feature views, and feature services for the churn prediction model.
 """
 
-from datetime import timedelta
 import os
+from datetime import timedelta
 
 from feast import Entity, FeatureView, Field, FileSource
 from feast.types import Float32, Int32, String
